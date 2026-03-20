@@ -83,7 +83,7 @@ class ChatApp {
         if (savedUrl) {
             this.apiUrlInput.value = savedUrl;
         } else {
-            this.apiUrlInput.value = 'http://127.0.0.1:5000/chat';
+            this.apiUrlInput.value = 'http://ruby.rongxianzhuo.com:5000/chat';
         }
         this.apiUrlInput.focus();
     }
