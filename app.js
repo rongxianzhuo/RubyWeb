@@ -22,14 +22,46 @@ class ChatApp {
         // 应用状态
         this.isLoading = false;
         this.messageHistory = [];
+        this.userId = null; // 用户唯一标识
 
         // 初始化
         this.init();
     }
 
     init() {
+        this.initUserId(); // 初始化用户 UUID
         this.bindEvents();
         this.checkApiUrl();
+    }
+
+    // 初始化用户 UUID
+    initUserId() {
+        const storageKey = 'ruby_user_id';
+        let userId = localStorage.getItem(storageKey);
+        
+        if (!userId) {
+            // 生成新的 UUID
+            userId = this.generateUUID();
+            localStorage.setItem(storageKey, userId);
+            console.log('生成新用户 ID:', userId);
+        } else {
+            console.log('使用已有用户 ID:', userId);
+        }
+        
+        this.userId = userId;
+    }
+
+    // 生成 UUID v4
+    generateUUID() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        // 兼容不支持 crypto.randomUUID 的浏览器
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 
     // 检查 API URL 是否已配置
@@ -170,7 +202,7 @@ class ChatApp {
         }
 
         const requestBody = {
-            name: API_CONFIG.userName || 'user',
+            name: this.userId,  // 使用用户 UUID
             content: message
         };
 
