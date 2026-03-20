@@ -17,6 +17,9 @@
                     <i class="fas fa-robot"></i>
                     Ruby
                 </h1>
+                <button class="settings-btn" id="settingsBtn" title="设置">
+                    <i class="fas fa-cog"></i>
+                </button>
             </header>
 
             <!-- 聊天消息区域 -->
@@ -45,6 +48,27 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div class="settings-overlay" id="settingsOverlay"></div>
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-header">
+            <h2><i class="fas fa-cog"></i> API 设置</h2>
+        </div>
+        <div class="settings-body">
+            <label for="apiUrlInput">后端 API 地址</label>
+            <input 
+                type="url" 
+                id="apiUrlInput" 
+                placeholder="http://127.0.0.1:5000/chat"
+            >
+            <p class="settings-hint">输入你的后端 API 地址，设置将保存在本地</p>
+        </div>
+        <div class="settings-footer">
+            <button class="btn-cancel" id="settingsCancelBtn">取消</button>
+            <button class="btn-save" id="settingsSaveBtn">保存</button>
+        </div>
     </div>
 
     <!-- Toast 通知 -->
