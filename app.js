@@ -9,7 +9,6 @@ class ChatApp {
         this.chatMessages = document.getElementById('chatMessages');
         this.chatInput = document.getElementById('chatInput');
         this.sendBtn = document.getElementById('sendBtn');
-        this.clearChatBtn = document.getElementById('clearChatBtn');
         this.toast = document.getElementById('toast');
         this.toastMessage = document.getElementById('toastMessage');
         this.welcomeContainer = document.querySelector('.welcome-container');
@@ -31,7 +30,6 @@ class ChatApp {
     bindEvents() {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        this.clearChatBtn.addEventListener('click', () => this.clearChat());
         this.chatInput.addEventListener('input', () => this.autoResizeTextarea());
     }
 
@@ -263,20 +261,6 @@ def hello():
 
     scrollToBottom() {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-    }
-
-    clearChat() {
-        this.chatMessages.innerHTML = '';
-        this.messageHistory = [];
-        localStorage.removeItem('chatHistory');
-        this.chatMessages.innerHTML = `
-            <div class="welcome-container">
-                <div class="welcome-icon"><i class="fas fa-comments"></i></div>
-                <h2>欢迎使用智能助手</h2>
-                <p>输入您的问题，我会尽力为您解答</p>
-            </div>
-        `;
-        this.welcomeContainer = this.chatMessages.querySelector('.welcome-container');
     }
 
     loadHistory() {
