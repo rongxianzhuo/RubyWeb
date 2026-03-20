@@ -36,7 +36,8 @@ class ChatApp {
     }
 
     handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        // Shift + Enter 发送，Enter 换行
+        if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault();
             this.sendMessage();
         }
