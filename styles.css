@@ -228,10 +228,22 @@ body {
 }
 
 /* Markdown 样式 */
+.message-text > p {
+    margin: 12px 0;
+}
+
+.message-text > p:first-child {
+    margin-top: 0;
+}
+
+.message-text > p:last-child {
+    margin-bottom: 0;
+}
+
 .message-text h1 {
     font-size: 1.5em;
     font-weight: 600;
-    margin: 16px 0 12px 0;
+    margin: 20px 0 12px 0;
     color: var(--text-primary);
 }
 
@@ -242,27 +254,15 @@ body {
 .message-text h2 {
     font-size: 1.3em;
     font-weight: 600;
-    margin: 14px 0 10px 0;
+    margin: 18px 0 10px 0;
     color: var(--text-primary);
 }
 
 .message-text h3 {
     font-size: 1.1em;
     font-weight: 600;
-    margin: 12px 0 8px 0;
+    margin: 16px 0 8px 0;
     color: var(--text-primary);
-}
-
-.message-text p {
-    margin: 8px 0;
-}
-
-.message-text p:first-child {
-    margin-top: 0;
-}
-
-.message-text p:last-child {
-    margin-bottom: 0;
 }
 
 .message-text ul,
@@ -303,7 +303,7 @@ body {
 }
 
 .message-text hr {
-    margin: 16px 0;
+    margin: 20px 0;
     border: none;
     border-top: 1px solid var(--border-color);
 }

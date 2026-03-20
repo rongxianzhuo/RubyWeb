@@ -193,15 +193,15 @@ def hello():
         // 行内代码 `...`
         html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
+        // 引用 > 引用
+        html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
         // 标题 ### 三级标题
         html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
         // 标题 ## 二级标题
         html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
         // 标题 # 一级标题
         html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-        // 引用 > 引用
-        html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
         // 加粗 **text**
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -222,8 +222,18 @@ def hello():
         // 水平线 ---
         html = html.replace(/^---$/gm, '<hr>');
 
-        // 换行
-        html = html.replace(/\n/g, '<br>');
+        // 处理段落：把连续的空行（两个以上换行）转换为段落
+        // 单个换行保留，多个连续换行合并
+        html = html.replace(/\n{3,}/g, '</p><p>');
+        html = html.replace(/\n\n/g, '</p><p>');
+        html = '<p>' + html + '</p>';
+        
+        // 段落标签内的单个换行转为 <br>
+        html = html.replace(/<p>([^<]*)\n([^<]*)<\/p>/g, '<p>$1<br>$2</p>');
+        
+        // 清理空的段落
+        html = html.replace(/<p>\s*<\/p>/g, '');
+        html = html.replace(/<p><\/p>/g, '');
 
         return html;
     }
