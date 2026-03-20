@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能助手</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 主聊天区域 -->
+        <main class="chat-main">
+            <!-- 聊天头部 -->
+            <header class="chat-header">
+                <h1 class="chat-title">
+                    <i class="fas fa-robot"></i>
+                    智能助手
+                </h1>
+                <div class="header-actions">
+                    <button class="clear-chat-btn" id="clearChatBtn" title="清空对话">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>清空</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 聊天消息区域 -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- 欢迎消息 -->
+                <div class="welcome-container">
+                    <div class="welcome-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h2>欢迎使用智能助手</h2>
+                    <p>输入您的问题，我会尽力为您解答</p>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="chat-input-area">
+                <div class="input-container">
+                    <textarea 
+                        id="chatInput" 
+                        placeholder="输入消息... (Shift+Enter换行，Enter发送)"
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn" title="发送">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div class="toast" id="toast">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
