@@ -187,9 +187,9 @@ def hello():
     parseMarkdown(text) {
         let html = this.escapeHtml(text);
 
-        // 代码块 ```...```
+        // 代码块 ```...``` (无复制按钮)
         html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
-            return `<pre><code class="lang-${lang}">${code.trim()}</code><button class="code-copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> 复制</button></pre>`;
+            return `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`;
         });
 
         // 行内代码 `...`
@@ -317,19 +317,6 @@ def hello():
         this.toast.className = `toast ${type} show`;
         setTimeout(() => this.toast.classList.remove('show'), 3000);
     }
-}
-
-// 复制代码
-function copyCode(btn) {
-    const code = btn.previousElementSibling.textContent;
-    navigator.clipboard.writeText(code).then(() => {
-        btn.innerHTML = '<i class="fas fa-check"></i> 已复制';
-        btn.classList.add('copied');
-        setTimeout(() => {
-            btn.innerHTML = '<i class="fas fa-copy"></i> 复制';
-            btn.classList.remove('copied');
-        }, 2000);
-    });
 }
 
 // 初始化
