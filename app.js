@@ -69,10 +69,9 @@ class ChatApp {
         const savedUrl = localStorage.getItem('apiUrl');
         if (savedUrl) {
             API_CONFIG.baseUrl = savedUrl;
-            this.loadHistory();
-        } else {
-            this.showSettingsModal();
         }
+        // 无论是否有保存的 URL，都加载历史记录
+        this.loadHistory();
     }
 
     // 显示设置弹窗
@@ -83,7 +82,7 @@ class ChatApp {
         if (savedUrl) {
             this.apiUrlInput.value = savedUrl;
         } else {
-            this.apiUrlInput.value = 'http://ruby.rongxianzhuo.com:5000/chat';
+            this.apiUrlInput.value = API_CONFIG.baseUrl;
         }
         this.apiUrlInput.focus();
     }
@@ -111,7 +110,6 @@ class ChatApp {
         API_CONFIG.baseUrl = url;
         this.hideSettingsModal();
         this.showToast('设置已保存', 'success');
-        this.loadHistory();
     }
 
     // 绑定事件
@@ -122,13 +120,7 @@ class ChatApp {
         
         // 设置相关
         this.settingsSaveBtn.addEventListener('click', () => this.saveApiUrl());
-        this.settingsCancelBtn.addEventListener('click', () => {
-            if (!localStorage.getItem('apiUrl')) {
-                this.showToast('请先配置 API 地址', 'error');
-            } else {
-                this.hideSettingsModal();
-            }
-        });
+        this.settingsCancelBtn.addEventListener('click', () => this.hideSettingsModal());
         this.settingsBtn.addEventListener('click', () => this.showSettingsModal());
         
         // 回车保存设置
@@ -140,11 +132,7 @@ class ChatApp {
         });
 
         // 点击遮罩关闭
-        this.settingsOverlay.addEventListener('click', () => {
-            if (localStorage.getItem('apiUrl')) {
-                this.hideSettingsModal();
-            }
-        });
+        this.settingsOverlay.addEventListener('click', () => this.hideSettingsModal());
     }
 
     handleKeyDown(e) {
