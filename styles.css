@@ -207,29 +207,25 @@ body {
     max-width: calc(100% - 56px);
 }
 
-.message.user .message-content {
-    text-align: right;
-}
-
 .message-text {
     padding: 14px 18px;
     border-radius: var(--radius-lg);
     font-size: 15px;
     line-height: 1.7;
     word-wrap: break-word;
+    text-align: left;
 }
 
 .message.user .message-text {
     background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
-    display: inline-block;
+    margin-left: auto;
+    display: block;
 }
 
 .message.assistant .message-text {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    display: inline-block;
-    text-align: left;
 }
 
 /* Markdown 样式 */
