@@ -345,9 +345,8 @@ def hello():
 
     // 解析表格
     parseTable(html) {
-        // 使用更宽松的正则匹配表格，不要求行首开始
-        // 匹配格式：| xxx | xxx | 后面跟着 | --- | --- | 再后面跟着 | xxx | xxx |
-        const tableRegex = /(\|.+\|)\s*\n\s*(\|[-:\s]+\|)\s*\n((?:\|.+\|)\s*\n?)+/g;
+        // 使用 [^|] 匹配非管道符，避免贪婪匹配问题
+        const tableRegex = /(\|[^|]+\|)\s*\n\s*(\|[-:\s]+\|)\s*\n((?:\|[^|]+\|)\s*\n?)+/g;
         
         return html.replace(tableRegex, (match, headerLine, alignLine, bodyLines) => {
             // 解析表头
