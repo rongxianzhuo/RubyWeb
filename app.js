@@ -345,36 +345,43 @@ def hello():
 
     // 解析表格
     parseTable(html) {
-        // 使用 [^|] 匹配非管道符，避免贪婪匹配问题
-        const tableRegex = /(\|[^|]+\|)\s*\n\s*(\|[-:\s]+\|)\s*\n((?:\|[^|]+\|)\s*\n?)+/g;
+        // 匹配表格：多行以 | 开头和结尾的行
+        // 分隔符行允许空格：| --- | :---: | ---: |
+        const tableRegex = /^(\|.+\|\n)((?:\|\s*[-:]+\s*\|\n)?)((?:\|.+\|\n?)+)/gm;
         
         return html.replace(tableRegex, (match, headerLine, alignLine, bodyLines) => {
             // 解析表头
             const headers = headerLine.trim().split('|').filter(cell => cell.trim() !== '');
             
-            // 解析对齐行
-            const alignCells = alignLine.trim().split('|').filter(cell => cell.trim() !== '');
-            const alignList = alignCells.map(cell => {
-                const trimmed = cell.trim();
-                if (trimmed.startsWith(':') && trimmed.endsWith(':')) {
-                    return ' style="text-align:center"';
-                } else if (trimmed.startsWith(':')) {
-                    return ' style="text-align:left"';
-                } else if (trimmed.endsWith(':')) {
-                    return ' style="text-align:right"';
-                }
-                return '';
+            // 解析对齐行（可选）
+            let align = [];
+            if (alignLine && alignLine.includes('-')) {
+                const aligns = alignLine.trim().split('|').filter(cell => cell.trim() !== '');
+                align = aligns.map(cell => {
+                    const trimmed = cell.trim();
+                    if (trimmed.startsWith(':') && trimmed.endsWith(':')) {
+                        return ' style="text-align:center"';
+                    } else if (trimmed.endsWith(':')) {
+                        return ' style="text-align:right"';
+                    } else if (trimmed.startsWith(':')) {
+                        return ' style="text-align:left"';
+                    }
+                    return '';
+                });
+            }
+            
+            // 解析表体 - 过滤掉可能是分隔符的行
+            const rows = bodyLines.trim().split('\n').filter(row => {
+                // 过滤掉纯分隔符行（如 |---|---| 或 | - | - |）
+                return !/^\|\s*[-:]+\s*(?:\|\s*[-:]+\s*)*\|$/.test(row.trim());
             });
             
-            // 解析表体
-            const rows = bodyLines.trim().split('\n').filter(row => row.trim());
             let bodyHtml = '';
-            
             for (const row of rows) {
-                const cells = row.trim().split('|').filter(cell => cell.trim() !== '');
+                const cells = row.split('|').filter(cell => cell.trim() !== '');
                 bodyHtml += '<tr>';
                 for (let i = 0; i < cells.length; i++) {
-                    const alignAttr = alignList[i] || '';
+                    const alignAttr = align[i] || '';
                     bodyHtml += `<td${alignAttr}>${cells[i].trim()}</td>`;
                 }
                 bodyHtml += '</tr>';
@@ -383,7 +390,7 @@ def hello():
             // 构建表头
             let headerHtml = '<thead><tr>';
             for (let i = 0; i < headers.length; i++) {
-                const alignAttr = alignList[i] || '';
+                const alignAttr = align[i] || '';
                 headerHtml += `<th${alignAttr}>${headers[i].trim()}</th>`;
             }
             headerHtml += '</tr></thead>';
