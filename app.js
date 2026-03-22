@@ -289,8 +289,12 @@ def hello():
 
         // 代码块 ```...``` (无复制按钮)
         html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
-            return `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`;
+            const langLabel = lang ? `<span class="code-lang">${lang}</span>` : '';
+            return `<div class="code-block">${langLabel}<pre><code class="lang-${lang}">${code.trim()}</code></pre></div>`;
         });
+
+        // 表格解析（需要在段落处理之前）
+        html = this.parseTable(html);
 
         // 行内代码 `...`
         html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -338,6 +342,62 @@ def hello():
         html = html.replace(/<p><\/p>/g, '');
 
         return html;
+    }
+
+    // 解析表格
+    parseTable(html) {
+        // 匹配表格：多行以 | 开头和结尾的行
+        // 分隔符行允许空格：| --- | :---: | ---: |
+        const tableRegex = /^(\|.+\|\n)((?:\|\s*[-:]+\s*\|\n)?)((?:\|.+\|\n?)+)/gm;
+        
+        return html.replace(tableRegex, (match, headerLine, alignLine, bodyLines) => {
+            // 解析表头
+            const headers = headerLine.trim().split('|').filter(cell => cell.trim() !== '');
+            
+            // 解析对齐行（可选）
+            let align = [];
+            if (alignLine && alignLine.includes('-')) {
+                const aligns = alignLine.trim().split('|').filter(cell => cell.trim() !== '');
+                align = aligns.map(cell => {
+                    const trimmed = cell.trim();
+                    if (trimmed.startsWith(':') && trimmed.endsWith(':')) {
+                        return ' style="text-align:center"';
+                    } else if (trimmed.endsWith(':')) {
+                        return ' style="text-align:right"';
+                    } else if (trimmed.startsWith(':')) {
+                        return ' style="text-align:left"';
+                    }
+                    return '';
+                });
+            }
+            
+            // 解析表体 - 过滤掉可能是分隔符的行
+            const rows = bodyLines.trim().split('\n').filter(row => {
+                // 过滤掉纯分隔符行（如 |---|---| 或 | - | - |）
+                return !/^\|\s*[-:]+\s*(?:\|\s*[-:]+\s*)*\|$/.test(row.trim());
+            });
+            
+            let bodyHtml = '';
+            for (const row of rows) {
+                const cells = row.split('|').filter(cell => cell.trim() !== '');
+                bodyHtml += '<tr>';
+                for (let i = 0; i < cells.length; i++) {
+                    const alignAttr = align[i] || '';
+                    bodyHtml += `<td${alignAttr}>${cells[i].trim()}</td>`;
+                }
+                bodyHtml += '</tr>';
+            }
+            
+            // 构建表头
+            let headerHtml = '<thead><tr>';
+            for (let i = 0; i < headers.length; i++) {
+                const alignAttr = align[i] || '';
+                headerHtml += `<th${alignAttr}>${headers[i].trim()}</th>`;
+            }
+            headerHtml += '</tr></thead>';
+            
+            return `<table class="markdown-table">${headerHtml}<tbody>${bodyHtml}</tbody></table>`;
+        });
     }
 
     // 添加加载指示器

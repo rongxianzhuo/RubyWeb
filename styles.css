@@ -328,7 +328,42 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
-/* 代码 */
+/* 代码块 - 新样式 */
+.message-text .code-block {
+    position: relative;
+    margin: 12px 0;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.message-text .code-block .code-lang {
+    display: block;
+    padding: 6px 14px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.message-text .code-block pre {
+    margin: 0;
+    padding: 14px;
+    overflow-x: auto;
+    background: transparent;
+}
+
+.message-text .code-block code {
+    background: transparent;
+    padding: 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 行内代码 */
 .message-text code {
     background: var(--bg-tertiary);
     padding: 3px 8px;
@@ -343,23 +378,7 @@ body {
     color: white;
 }
 
-.message-text pre {
-    margin: 12px 0;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-
-.message-text pre code {
-    display: block;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    padding: 16px;
-    overflow-x: auto;
-    font-size: 13px;
-    line-height: 1.5;
-    border-radius: var(--radius-md);
-}
-
+/* 代码复制按钮 */
 .code-copy-btn {
     position: absolute;
     top: 8px;
@@ -383,6 +402,37 @@ body {
 
 .code-copy-btn.copied {
     color: #22c55e;
+}
+
+/* 表格 */
+.message-text .markdown-table {
+    width: 100%;
+    margin: 16px 0;
+    border-collapse: collapse;
+    font-size: 14px;
+    overflow-x: auto;
+    display: block;
+}
+
+.message-text .markdown-table th,
+.message-text .markdown-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.message-text .markdown-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.message-text .markdown-table tr:nth-child(even) {
+    background: var(--bg-secondary);
+}
+
+.message-text .markdown-table tr:hover {
+    background: var(--bg-tertiary);
 }
 
 /* 打字指示器 */
@@ -682,5 +732,18 @@ body {
     .message-text {
         font-size: 14px;
         padding: 12px 14px;
+    }
+
+    .message-text .markdown-table {
+        font-size: 12px;
+    }
+
+    .message-text .markdown-table th,
+    .message-text .markdown-table td {
+        padding: 8px 10px;
+    }
+
+    .message-text .code-block code {
+        font-size: 12px;
     }
 }
