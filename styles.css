@@ -385,6 +385,37 @@ body {
     color: #22c55e;
 }
 
+/* 表格 */
+.message-text .markdown-table {
+    width: 100%;
+    margin: 16px 0;
+    border-collapse: collapse;
+    font-size: 14px;
+    overflow-x: auto;
+    display: block;
+}
+
+.message-text .markdown-table th,
+.message-text .markdown-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.message-text .markdown-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.message-text .markdown-table tr:nth-child(even) {
+    background: var(--bg-secondary);
+}
+
+.message-text .markdown-table tr:hover {
+    background: var(--bg-tertiary);
+}
+
 /* 打字指示器 */
 .typing-indicator {
     display: flex;
@@ -682,5 +713,14 @@ body {
     .message-text {
         font-size: 14px;
         padding: 12px 14px;
+    }
+
+    .message-text .markdown-table {
+        font-size: 12px;
+    }
+
+    .message-text .markdown-table th,
+    .message-text .markdown-table td {
+        padding: 8px 10px;
     }
 }

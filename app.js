@@ -292,6 +292,9 @@ def hello():
             return `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`;
         });
 
+        // 表格 | 列1 | 列2 | ... 需要在代码块之后、引用之前处理
+        html = this.parseTable(html);
+
         // 行内代码 `...`
         html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
@@ -338,6 +341,59 @@ def hello():
         html = html.replace(/<p><\/p>/g, '');
 
         return html;
+    }
+
+    // 解析表格
+    parseTable(html) {
+        // 匹配表格：多行以 | 开头和结尾的行
+        // 例如：
+        // | 列1 | 列2 |
+        // | --- | --- |
+        // | 内容1 | 内容2 |
+        const tableRegex = /^(\|.+\|\n)((?:\|[-:]+\|\n)?)((?:\|.+\|\n?)+)/gm;
+        
+        return html.replace(tableRegex, (match, headerLine, alignLine, bodyLines) => {
+            // 解析表头
+            const headers = headerLine.trim().split('|').filter(cell => cell.trim() !== '');
+            
+            // 解析对齐行（可选）
+            let align = '';
+            if (alignLine && alignLine.includes('-')) {
+                const aligns = alignLine.trim().split('|').filter(cell => cell.trim() !== '');
+                align = aligns.map(cell => {
+                    if (cell.includes(':') && cell.startsWith(':')) {
+                        return ' style="text-align:left"';
+                    } else if (cell.includes(':') && cell.endsWith(':')) {
+                        return ' style="text-align:right"';
+                    }
+                    return '';
+                }).join('');
+            }
+            
+            // 解析表体
+            const rows = bodyLines.trim().split('\n');
+            let bodyHtml = '';
+            
+            for (const row of rows) {
+                const cells = row.split('|').filter(cell => cell.trim() !== '');
+                bodyHtml += '<tr>';
+                for (let i = 0; i < cells.length; i++) {
+                    const alignAttr = align[i] || '';
+                    bodyHtml += `<td${alignAttr}>${cells[i].trim()}</td>`;
+                }
+                bodyHtml += '</tr>';
+            }
+            
+            // 构建表头
+            let headerHtml = '<thead><tr>';
+            for (let i = 0; i < headers.length; i++) {
+                const alignAttr = align[i] || '';
+                headerHtml += `<th${alignAttr}>${headers[i].trim()}</th>`;
+            }
+            headerHtml += '</tr></thead>';
+            
+            return `<table class="markdown-table">${headerHtml}<tbody>${bodyHtml}</tbody></table>`;
+        });
     }
 
     // 添加加载指示器
