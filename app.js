@@ -289,7 +289,8 @@ def hello():
 
         // 代码块 ```...``` (无复制按钮)
         html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
-            return `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`;
+            const langLabel = lang ? `<span class="code-lang">${lang}</span>` : '';
+            return `<div class="code-block">${langLabel}<pre><code class="lang-${lang}">${code.trim()}</code></pre></div>`;
         });
 
         // 表格解析（需要在段落处理之前）
