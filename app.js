@@ -292,7 +292,7 @@ def hello():
             return `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`;
         });
 
-        // 表格 | 列1 | 列2 | ... 需要在代码块之后、引用之前处理
+        // 表格解析（需要在段落处理之前）
         html = this.parseTable(html);
 
         // 行内代码 `...`
@@ -345,40 +345,37 @@ def hello():
 
     // 解析表格
     parseTable(html) {
-        // 匹配表格：多行以 | 开头和结尾的行
-        // 例如：
-        // | 列1 | 列2 |
-        // | --- | --- |
-        // | 内容1 | 内容2 |
-        const tableRegex = /^(\|.+\|\n)((?:\|[-:]+\|\n)?)((?:\|.+\|\n?)+)/gm;
+        // 使用更宽松的正则匹配表格，不要求行首开始
+        // 匹配格式：| xxx | xxx | 后面跟着 | --- | --- | 再后面跟着 | xxx | xxx |
+        const tableRegex = /(\|.+\|)\s*\n\s*(\|[-:\s]+\|)\s*\n((?:\|.+\|)\s*\n?)+/g;
         
         return html.replace(tableRegex, (match, headerLine, alignLine, bodyLines) => {
             // 解析表头
             const headers = headerLine.trim().split('|').filter(cell => cell.trim() !== '');
             
-            // 解析对齐行（可选）
-            let align = '';
-            if (alignLine && alignLine.includes('-')) {
-                const aligns = alignLine.trim().split('|').filter(cell => cell.trim() !== '');
-                align = aligns.map(cell => {
-                    if (cell.includes(':') && cell.startsWith(':')) {
-                        return ' style="text-align:left"';
-                    } else if (cell.includes(':') && cell.endsWith(':')) {
-                        return ' style="text-align:right"';
-                    }
-                    return '';
-                }).join('');
-            }
+            // 解析对齐行
+            const alignCells = alignLine.trim().split('|').filter(cell => cell.trim() !== '');
+            const alignList = alignCells.map(cell => {
+                const trimmed = cell.trim();
+                if (trimmed.startsWith(':') && trimmed.endsWith(':')) {
+                    return ' style="text-align:center"';
+                } else if (trimmed.startsWith(':')) {
+                    return ' style="text-align:left"';
+                } else if (trimmed.endsWith(':')) {
+                    return ' style="text-align:right"';
+                }
+                return '';
+            });
             
             // 解析表体
-            const rows = bodyLines.trim().split('\n');
+            const rows = bodyLines.trim().split('\n').filter(row => row.trim());
             let bodyHtml = '';
             
             for (const row of rows) {
-                const cells = row.split('|').filter(cell => cell.trim() !== '');
+                const cells = row.trim().split('|').filter(cell => cell.trim() !== '');
                 bodyHtml += '<tr>';
                 for (let i = 0; i < cells.length; i++) {
-                    const alignAttr = align[i] || '';
+                    const alignAttr = alignList[i] || '';
                     bodyHtml += `<td${alignAttr}>${cells[i].trim()}</td>`;
                 }
                 bodyHtml += '</tr>';
@@ -387,7 +384,7 @@ def hello():
             // 构建表头
             let headerHtml = '<thead><tr>';
             for (let i = 0; i < headers.length; i++) {
-                const alignAttr = align[i] || '';
+                const alignAttr = alignList[i] || '';
                 headerHtml += `<th${alignAttr}>${headers[i].trim()}</th>`;
             }
             headerHtml += '</tr></thead>';
