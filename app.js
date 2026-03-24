@@ -205,14 +205,15 @@ class ChatApp {
     }
 
     /**
-     * 获取当前显示的最后一条 assistant 消息内容
+     * 获取 messageHistory 中最后一条 assistant 消息
      */
-    getLastAssistantMessage() {
-        const messages = this.chatMessages.querySelectorAll('.message.assistant:not(#loadingIndicator)');
-        if (messages.length === 0) return '';
-        const lastMsg = messages[messages.length - 1];
-        const textEl = lastMsg.querySelector('.message-text');
-        return textEl ? textEl.textContent.trim() : '';
+    getLastAssistantMessageFromHistory() {
+        for (let i = this.messageHistory.length - 1; i >= 0; i--) {
+            if (this.messageHistory[i].role === 'assistant') {
+                return this.messageHistory[i].content;
+            }
+        }
+        return '';
     }
 
     /**
@@ -251,11 +252,11 @@ class ChatApp {
 
             const content = data.content || '';
             
-            // 获取当前最后一条消息
-            const lastDisplayedMsg = this.getLastAssistantMessage();
+            // 获取 messageHistory 中最后一条 assistant 消息
+            const lastHistoryMsg = this.getLastAssistantMessageFromHistory();
             
             // 如果消息相同或为空
-            if (content === lastDisplayedMsg || !content) {
+            if (content === lastHistoryMsg || !content) {
                 if (!silent) {
                     if (data.think === 1) {
                         this.showToast('Ruby 正在思考中...');
@@ -432,6 +433,7 @@ class ChatApp {
         // 添加用户消息（不解析 Markdown）
         this.addUserMessage(message);
         this.messageHistory.push({ role: 'user', content: message });
+        this.saveHistory();  // 立即保存，防止消息丢失
 
         this.chatInput.value = '';
         this.autoResizeTextarea();
@@ -448,7 +450,7 @@ class ChatApp {
         } catch (error) {
             this.removeLoadingIndicator();
             this.showToast(error.message || '请求失败', 'error');
-            this.messageHistory.pop();
+            // 不移除用户消息，因为已经保存了
         }
 
         this.setLoading(false);
