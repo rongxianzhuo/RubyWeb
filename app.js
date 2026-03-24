@@ -217,10 +217,13 @@ class ChatApp {
 
     /**
      * 显示Ruby最后回复消息
+     * @param {boolean} silent - 静默模式，不显示toast和不加入聊天列表
      */
-    async showLastMessage() {
+    async showLastMessage(silent = false) {
         if (API_CONFIG.mockMode) {
-            this.showToast('模拟模式下无法查询');
+            if (!silent) {
+                this.showToast('模拟模式下无法查询');
+            }
             return;
         }
 
@@ -248,6 +251,11 @@ class ChatApp {
             const content = data.content || '';
             const thinkStatus = data.think === 1 ? '🔄 思考中' : '✅ 空闲';
             
+            // 静默模式下直接返回，不做任何操作
+            if (silent) {
+                return;
+            }
+            
             // 获取当前最后一条消息
             const lastDisplayedMsg = this.getLastAssistantMessage();
             
@@ -273,7 +281,9 @@ class ChatApp {
             
         } catch (error) {
             console.error('查询最后消息失败:', error);
-            this.showToast('查询失败', 'error');
+            if (!silent) {
+                this.showToast('查询失败', 'error');
+            }
         }
     }
 
@@ -325,6 +335,9 @@ class ChatApp {
         }
         // 无论是否有保存的 URL，都加载历史记录
         this.loadHistory();
+        
+        // 静默模式查询最后消息（页面加载时自动同步）
+        this.showLastMessage(silent = true);
     }
 
     // 显示设置弹窗
