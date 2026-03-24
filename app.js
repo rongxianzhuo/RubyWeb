@@ -74,12 +74,15 @@ class ChatApp {
             }
         });
 
-        // 未来可在此处添加更多指令...
-        // this.registerCommand({
-        //     name: 'newchat',
-        //     description: '开始新的对话',
-        //     handler: (args, rawInput) => { ... }
-        // });
+        // /last - 查询Ruby最后回复消息
+        this.registerCommand({
+            name: 'last',
+            description: '查询Ruby最后一条回复消息及思考状态',
+            handler: (args, rawInput) => {
+                this.showLastMessage();
+                return true;
+            }
+        });
     }
 
     /**
@@ -199,6 +202,52 @@ class ChatApp {
         statusText += `| 用户 ID | ${userId} |\n`;
         
         this.addBotMessage(statusText);
+    }
+
+    /**
+     * 显示Ruby最后回复消息
+     */
+    async showLastMessage() {
+        if (API_CONFIG.mockMode) {
+            this.addBotMessage('**⚠️ 模拟模式下无法查询最后消息**');
+            return;
+        }
+
+        try {
+            // 构建 /last_message 接口 URL
+            const lastMsgUrl = API_CONFIG.baseUrl.replace('/chat/', '/last_message/');
+            const url = `${lastMsgUrl}/${this.userId}`;
+            
+            if (API_CONFIG.debug) {
+                console.log('查询最后消息:', url);
+            }
+
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`请求失败 (${response.status})`);
+            }
+
+            const data = await response.json();
+            
+            if (API_CONFIG.debug) {
+                console.log('收到响应:', data);
+            }
+
+            const thinkStatus = data.think === 1 ? '🔄 思考中' : '✅ 空闲';
+            const content = data.content || '(无消息)';
+            
+            let msg = `## 💬 Ruby 状态\n\n`;
+            msg += `| 项目 | 状态 |\n`;
+            msg += `|------|------|\n`;
+            msg += `| 思考状态 | ${thinkStatus} |\n`;
+            msg += `| 最后消息 | ${content.substring(0, 100)}${content.length > 100 ? '...' : ''} |\n`;
+            
+            this.addBotMessage(msg);
+        } catch (error) {
+            console.error('查询最后消息失败:', error);
+            this.showToast('查询最后消息失败', 'error');
+        }
     }
 
     // ============================================
