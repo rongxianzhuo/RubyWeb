@@ -79,7 +79,7 @@ class ChatApp {
             name: 'last',
             description: '查询Ruby最后一条回复消息及思考状态',
             handler: (args, rawInput) => {
-                this.showLastMessage();
+                this.showLastMessage(false);
                 return true;
             }
         });
@@ -219,7 +219,7 @@ class ChatApp {
      * 显示Ruby最后回复消息
      * @param {boolean} silent - 静默模式，true时不显示toast
      */
-    async showLastMessage(silent = false) {
+    async showLastMessage(silent) {
         if (API_CONFIG.mockMode) {
             if (!silent) {
                 this.showToast('模拟模式下无法查询');
@@ -228,9 +228,9 @@ class ChatApp {
         }
 
         try {
-            // 构建 /last_message 接口 URL
-            const lastMsgUrl = API_CONFIG.baseUrl.replace('/chat/', '/last_message/');
-            const url = `${lastMsgUrl}/${this.userId}`;
+            // 从 baseUrl 提取基础路径，构造 /last_message/<userId> 接口
+            // baseUrl 格式: http://xxx:port/chat/<userId>
+            const url = `/last_message/${this.userId}`;
             
             if (API_CONFIG.debug) {
                 console.log('查询最后消息:', url);
@@ -333,7 +333,7 @@ class ChatApp {
         this.loadHistory();
         
         // 静默模式查询最后消息（页面加载时自动同步，防止消息丢失）
-        this.showLastMessage(silent = true);
+        this.showLastMessage(true);
     }
 
     // 显示设置弹窗
