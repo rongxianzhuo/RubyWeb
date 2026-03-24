@@ -217,7 +217,7 @@ class ChatApp {
 
     /**
      * 显示Ruby最后回复消息
-     * @param {boolean} silent - 静默模式，不显示toast和不加入聊天列表
+     * @param {boolean} silent - 静默模式，true时不显示toast
      */
     async showLastMessage(silent = false) {
         if (API_CONFIG.mockMode) {
@@ -249,22 +249,18 @@ class ChatApp {
             }
 
             const content = data.content || '';
-            const thinkStatus = data.think === 1 ? '🔄 思考中' : '✅ 空闲';
-            
-            // 静默模式下直接返回，不做任何操作
-            if (silent) {
-                return;
-            }
             
             // 获取当前最后一条消息
             const lastDisplayedMsg = this.getLastAssistantMessage();
             
-            // 如果消息相同或为空，只显示短暂提示
+            // 如果消息相同或为空
             if (content === lastDisplayedMsg || !content) {
-                if (data.think === 1) {
-                    this.showToast('Ruby 正在思考中...');
-                } else {
-                    this.showToast('暂无新消息');
+                if (!silent) {
+                    if (data.think === 1) {
+                        this.showToast('Ruby 正在思考中...');
+                    } else {
+                        this.showToast('暂无新消息');
+                    }
                 }
                 return;
             }
@@ -336,7 +332,7 @@ class ChatApp {
         // 无论是否有保存的 URL，都加载历史记录
         this.loadHistory();
         
-        // 静默模式查询最后消息（页面加载时自动同步）
+        // 静默模式查询最后消息（页面加载时自动同步，防止消息丢失）
         this.showLastMessage(silent = true);
     }
 
