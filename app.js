@@ -1,6 +1,6 @@
 /**
  * AI 聊天应用主逻辑
- * 支持 Markdown 渲染
+ * 支持 Markdown 渲染和可扩展指令系统
  */
 
 class ChatApp {
@@ -24,9 +24,186 @@ class ChatApp {
         this.messageHistory = [];
         this.userId = null; // 用户唯一标识
 
+        // 初始化指令系统
+        this.initCommands();
+
         // 初始化
         this.init();
     }
+
+    // ============================================
+    // 指令系统 - 可扩展设计
+    // ============================================
+
+    /**
+     * 初始化所有指令
+     * 格式：{ name: 指令名, description: 描述, handler: 处理函数 }
+     * handler 接收参数 (args: string, rawInput: string)
+     * 返回 true 表示已处理，返回 false 表示需要继续执行默认行为
+     */
+    initCommands() {
+        this.commands = new Map();
+
+        // /clear - 清空聊天记录
+        this.registerCommand({
+            name: 'clear',
+            description: '清空当前聊天记录',
+            handler: (args, rawInput) => {
+                this.clearChat();
+                return true;
+            }
+        });
+
+        // /help - 显示帮助信息
+        this.registerCommand({
+            name: 'help',
+            description: '显示所有可用指令',
+            handler: (args, rawInput) => {
+                this.showHelp();
+                return true;
+            }
+        });
+
+        // /status - 显示状态信息
+        this.registerCommand({
+            name: 'status',
+            description: '显示当前连接状态',
+            handler: (args, rawInput) => {
+                this.showStatus();
+                return true;
+            }
+        });
+
+        // 未来可在此处添加更多指令...
+        // this.registerCommand({
+        //     name: 'newchat',
+        //     description: '开始新的对话',
+        //     handler: (args, rawInput) => { ... }
+        // });
+    }
+
+    /**
+     * 注册新指令
+     * @param {Object} command - 指令对象
+     * @param {string} command.name - 指令名称（不含斜杠）
+     * @param {string} command.description - 指令描述
+     * @param {Function} command.handler - 处理函数，接收 (args, rawInput)
+     */
+    registerCommand(command) {
+        if (!command.name || !command.handler) {
+            console.error('指令注册失败：缺少 name 或 handler');
+            return;
+        }
+        this.commands.set(command.name, command);
+    }
+
+    /**
+     * 移除指令
+     * @param {string} name - 指令名称
+     */
+    removeCommand(name) {
+        this.commands.delete(name);
+    }
+
+    /**
+     * 检查输入是否为指令并执行
+     * @param {string} input - 用户输入
+     * @returns {boolean} - 是否已处理（为指令）
+     */
+    executeCommand(input) {
+        const trimmed = input.trim();
+        
+        // 检查是否以 / 开头
+        if (!trimmed.startsWith('/')) {
+            return false;
+        }
+
+        // 解析指令名称和参数
+        // 格式: /command arg1 arg2 或 /command
+        const parts = trimmed.slice(1).split(/\s+/);
+        const commandName = parts[0].toLowerCase();
+        const args = parts.slice(1).join(' ');
+        const rawInput = trimmed;
+
+        // 查找并执行指令
+        const command = this.commands.get(commandName);
+        if (command) {
+            try {
+                return command.handler(args, rawInput);
+            } catch (error) {
+                console.error(`指令 ${commandName} 执行出错:`, error);
+                this.showToast(`指令执行出错: ${error.message}`, 'error');
+                return true; // 已处理，只是出错了
+            }
+        } else {
+            this.showToast(`未知指令: /${commandName}，输入 /help 查看可用指令`, 'error');
+            return true; // 已处理（未知指令也算处理了）
+        }
+    }
+
+    /**
+     * 清空聊天记录
+     */
+    clearChat() {
+        this.messageHistory = [];
+        localStorage.removeItem('chatHistory');
+        
+        // 清空页面上的消息
+        this.chatMessages.innerHTML = '';
+        
+        // 重新显示欢迎页
+        this.welcomeContainer = document.createElement('div');
+        this.welcomeContainer.className = 'welcome-container';
+        this.welcomeContainer.innerHTML = `
+            <div class="welcome-icon">
+                <i class="fas fa-comments"></i>
+            </div>
+            <h2>欢迎使用 Ruby</h2>
+            <p>输入您的问题，我会尽力为您解答</p>
+        `;
+        this.chatMessages.appendChild(this.welcomeContainer);
+        
+        this.showToast('聊天记录已清空', 'success');
+    }
+
+    /**
+     * 显示帮助信息
+     */
+    showHelp() {
+        let helpText = '## 📋 可用指令\n\n';
+        
+        for (const [name, command] of this.commands) {
+            helpText += `- **/${name}** - ${command.description}\n`;
+        }
+        
+        helpText += '\n---\n\n💡 直接输入内容即可与 AI 对话';
+        
+        this.addBotMessage(helpText);
+    }
+
+    /**
+     * 显示状态信息
+     */
+    showStatus() {
+        const apiUrl = API_CONFIG.baseUrl;
+        const mockMode = API_CONFIG.mockMode ? '开启' : '关闭';
+        const historyCount = this.messageHistory.length;
+        const userId = this.userId ? this.userId.substring(0, 8) + '...' : '未设置';
+        
+        let statusText = `## 🔧 当前状态\n\n`;
+        statusText += `| 项目 | 状态 |\n`;
+        statusText += `|------|------|\n`;
+        statusText += `| API 地址 | ${apiUrl} |\n`;
+        statusText += `| 模拟模式 | ${mockMode} |\n`;
+        statusText += `| 历史记录 | ${historyCount} 条 |\n`;
+        statusText += `| 用户 ID | ${userId} |\n`;
+        
+        this.addBotMessage(statusText);
+    }
+
+    // ============================================
+    // 原有应用逻辑
+    // ============================================
 
     init() {
         this.initUserId(); // 初始化用户 UUID
@@ -152,6 +329,14 @@ class ChatApp {
     async sendMessage() {
         const message = this.chatInput.value.trim();
         if (!message || this.isLoading) return;
+
+        // ========== 指令系统处理 ==========
+        if (this.executeCommand(message)) {
+            this.chatInput.value = '';
+            this.autoResizeTextarea();
+            return;
+        }
+        // ========== 指令系统处理结束 ==========
 
         if (this.welcomeContainer) {
             this.welcomeContainer.remove();
