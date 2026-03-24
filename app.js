@@ -205,11 +205,22 @@ class ChatApp {
     }
 
     /**
+     * 获取当前显示的最后一条 assistant 消息内容
+     */
+    getLastAssistantMessage() {
+        const messages = this.chatMessages.querySelectorAll('.message.assistant:not(#loadingIndicator)');
+        if (messages.length === 0) return '';
+        const lastMsg = messages[messages.length - 1];
+        const textEl = lastMsg.querySelector('.message-text');
+        return textEl ? textEl.textContent.trim() : '';
+    }
+
+    /**
      * 显示Ruby最后回复消息
      */
     async showLastMessage() {
         if (API_CONFIG.mockMode) {
-            this.addBotMessage('**⚠️ 模拟模式下无法查询最后消息**');
+            this.showToast('模拟模式下无法查询');
             return;
         }
 
@@ -234,19 +245,35 @@ class ChatApp {
                 console.log('收到响应:', data);
             }
 
+            const content = data.content || '';
             const thinkStatus = data.think === 1 ? '🔄 思考中' : '✅ 空闲';
-            const content = data.content || '(无消息)';
             
-            let msg = `## 💬 Ruby 状态\n\n`;
-            msg += `| 项目 | 状态 |\n`;
-            msg += `|------|------|\n`;
-            msg += `| 思考状态 | ${thinkStatus} |\n`;
-            msg += `| 最后消息 | ${content.substring(0, 100)}${content.length > 100 ? '...' : ''} |\n`;
+            // 获取当前最后一条消息
+            const lastDisplayedMsg = this.getLastAssistantMessage();
             
-            this.addBotMessage(msg);
+            // 如果消息相同或为空，只显示短暂提示
+            if (content === lastDisplayedMsg || !content) {
+                if (data.think === 1) {
+                    this.showToast('Ruby 正在思考中...');
+                } else {
+                    this.showToast('暂无新消息');
+                }
+                return;
+            }
+            
+            // 消息不同且不为空，更新聊天列表
+            if (this.welcomeContainer) {
+                this.welcomeContainer.remove();
+                this.welcomeContainer = null;
+            }
+            
+            this.addBotMessage(content);
+            this.messageHistory.push({ role: 'assistant', content: content });
+            this.saveHistory();
+            
         } catch (error) {
             console.error('查询最后消息失败:', error);
-            this.showToast('查询最后消息失败', 'error');
+            this.showToast('查询失败', 'error');
         }
     }
 
