@@ -1,7 +1,7 @@
 // 后端API配置
 const API_CONFIG = {
     // 你的后端接口地址（首次访问时会被 localStorage 中的设置覆盖）
-    baseUrl: 'http://ruby.rongxianzhuo.com:5000/chat',
+    baseUrl: 'http://ruby.rongxianzhuo.com:5000',
     
     // 是否使用模拟数据（false = 使用真实后端接口）
     mockMode: false,
