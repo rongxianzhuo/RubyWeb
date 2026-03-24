@@ -74,12 +74,15 @@ class ChatApp {
             }
         });
 
-        // 未来可在此处添加更多指令...
-        // this.registerCommand({
-        //     name: 'newchat',
-        //     description: '开始新的对话',
-        //     handler: (args, rawInput) => { ... }
-        // });
+        // /last - 查询Ruby最后回复消息
+        this.registerCommand({
+            name: 'last',
+            description: '查询Ruby最后一条回复消息及思考状态',
+            handler: (args, rawInput) => {
+                this.showLastMessage(false);
+                return true;
+            }
+        });
     }
 
     /**
@@ -201,6 +204,87 @@ class ChatApp {
         this.addBotMessage(statusText);
     }
 
+    /**
+     * 获取 messageHistory 中最后一条 assistant 消息
+     */
+    getLastAssistantMessageFromHistory() {
+        for (let i = this.messageHistory.length - 1; i >= 0; i--) {
+            if (this.messageHistory[i].role === 'assistant') {
+                return this.messageHistory[i].content;
+            }
+        }
+        return '';
+    }
+
+    /**
+     * 显示Ruby最后回复消息
+     * @param {boolean} silent - 静默模式，true时不显示toast
+     */
+    async showLastMessage(silent) {
+        if (API_CONFIG.mockMode) {
+            if (!silent) {
+                this.showToast('模拟模式下无法查询');
+            }
+            return;
+        }
+
+        try {
+            // 从 baseUrl 提取基础路径，拼接 /last_message/<userId>
+            // baseUrl 格式: http://xxx:port/chat/<userId>
+            const baseUrl = API_CONFIG.baseUrl.replace(/\/chat\/.*$/, '');
+            const url = `${baseUrl}/last_message/${this.userId}`;
+            
+            if (API_CONFIG.debug) {
+                console.log('查询最后消息:', url);
+            }
+
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`请求失败 (${response.status})`);
+            }
+
+            const data = await response.json();
+            
+            if (API_CONFIG.debug) {
+                console.log('收到响应:', data);
+            }
+
+            const content = data.content || '';
+            
+            // 获取 messageHistory 中最后一条 assistant 消息
+            const lastHistoryMsg = this.getLastAssistantMessageFromHistory();
+            
+            // 如果消息相同或为空
+            if (content === lastHistoryMsg || !content) {
+                if (!silent) {
+                    if (data.think === 1) {
+                        this.showToast('Ruby 正在思考中...');
+                    } else {
+                        this.showToast('暂无新消息');
+                    }
+                }
+                return;
+            }
+            
+            // 消息不同且不为空，更新聊天列表
+            if (this.welcomeContainer) {
+                this.welcomeContainer.remove();
+                this.welcomeContainer = null;
+            }
+            
+            this.addBotMessage(content);
+            this.messageHistory.push({ role: 'assistant', content: content });
+            this.saveHistory();
+            
+        } catch (error) {
+            console.error('查询最后消息失败:', error);
+            if (!silent) {
+                this.showToast('查询失败', 'error');
+            }
+        }
+    }
+
     // ============================================
     // 原有应用逻辑
     // ============================================
@@ -249,6 +333,9 @@ class ChatApp {
         }
         // 无论是否有保存的 URL，都加载历史记录
         this.loadHistory();
+        
+        // 静默模式查询最后消息（页面加载时自动同步，防止消息丢失）
+        this.showLastMessage(true);
     }
 
     // 显示设置弹窗
@@ -346,6 +433,7 @@ class ChatApp {
         // 添加用户消息（不解析 Markdown）
         this.addUserMessage(message);
         this.messageHistory.push({ role: 'user', content: message });
+        this.saveHistory();  // 立即保存，防止消息丢失
 
         this.chatInput.value = '';
         this.autoResizeTextarea();
@@ -362,7 +450,7 @@ class ChatApp {
         } catch (error) {
             this.removeLoadingIndicator();
             this.showToast(error.message || '请求失败', 'error');
-            this.messageHistory.pop();
+            // 不移除用户消息，因为已经保存了
         }
 
         this.setLoading(false);
@@ -379,11 +467,16 @@ class ChatApp {
             content: message
         };
 
+        // 从 baseUrl 提取基础路径，拼接 /chat/<userId>
+        // baseUrl 格式: http://xxx:port/chat/<userId>
+        const baseUrl = API_CONFIG.baseUrl.replace(/\/chat\/.*$/, '');
+        const url = `${baseUrl}/chat/${this.userId}`;
+
         if (API_CONFIG.debug) {
-            console.log('发送请求:', requestBody);
+            console.log('发送请求:', url, requestBody);
         }
 
-        const response = await fetch(API_CONFIG.baseUrl, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
