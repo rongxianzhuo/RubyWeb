@@ -228,9 +228,10 @@ class ChatApp {
         }
 
         try {
-            // 从 baseUrl 提取基础路径，构造 /last_message/<userId> 接口
+            // 从 baseUrl 提取基础路径，拼接 /last_message/<userId>
             // baseUrl 格式: http://xxx:port/chat/<userId>
-            const url = `/last_message/${this.userId}`;
+            const baseUrl = API_CONFIG.baseUrl.replace(/\/chat\/.*$/, '');
+            const url = `${baseUrl}/last_message/${this.userId}`;
             
             if (API_CONFIG.debug) {
                 console.log('查询最后消息:', url);
