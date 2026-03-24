@@ -465,11 +465,16 @@ class ChatApp {
             content: message
         };
 
+        // 从 baseUrl 提取基础路径，拼接 /chat/<userId>
+        // baseUrl 格式: http://xxx:port/chat/<userId>
+        const baseUrl = API_CONFIG.baseUrl.replace(/\/chat\/.*$/, '');
+        const url = `${baseUrl}/chat/${this.userId}`;
+
         if (API_CONFIG.debug) {
-            console.log('发送请求:', requestBody);
+            console.log('发送请求:', url, requestBody);
         }
 
-        const response = await fetch(API_CONFIG.baseUrl, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
