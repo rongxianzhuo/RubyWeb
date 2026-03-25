@@ -111,7 +111,7 @@ class ChatApp {
     /**
      * 检查输入是否为指令并执行
      * @param {string} input - 用户输入
-     * @returns {boolean} - 是否已处理（为指令）
+     * @returns {boolean} - 是否已处理（为已知指令），返回 false 表示按普通消息处理
      */
     executeCommand(input) {
         const trimmed = input.trim();
@@ -139,8 +139,8 @@ class ChatApp {
                 return true; // 已处理，只是出错了
             }
         } else {
-            this.showToast(`未知指令: /${commandName}，输入 /help 查看可用指令`, 'error');
-            return true; // 已处理（未知指令也算处理了）
+            // 未知指令，不拦截，按普通消息发给后端处理
+            return false;
         }
     }
 
@@ -418,6 +418,7 @@ class ChatApp {
         if (!message || this.isLoading) return;
 
         // ========== 指令系统处理 ==========
+        // 返回 true 表示已处理（内置指令），返回 false 表示按普通消息发给后端
         if (this.executeCommand(message)) {
             this.chatInput.value = '';
             this.autoResizeTextarea();
