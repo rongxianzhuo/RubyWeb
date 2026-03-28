@@ -12,11 +12,6 @@ class ChatApp {
         this.toast = document.getElementById('toast');
         this.toastMessage = document.getElementById('toastMessage');
         this.welcomeContainer = document.querySelector('.welcome-container');
-        this.settingsModal = document.getElementById('settingsModal');
-        this.settingsOverlay = document.getElementById('settingsOverlay');
-        this.apiUrlInput = document.getElementById('apiUrlInput');
-        this.settingsSaveBtn = document.getElementById('settingsSaveBtn');
-        this.settingsCancelBtn = document.getElementById('settingsCancelBtn');
         this.settingsBtn = document.getElementById('settingsBtn');
 
         // 应用状态
@@ -292,7 +287,10 @@ class ChatApp {
     init() {
         this.initUserId(); // 初始化用户 UUID
         this.bindEvents();
-        this.checkApiUrl();
+        this.loadHistory();
+        
+        // 静默模式查询最后消息（页面加载时自动同步，防止消息丢失）
+        this.showLastMessage(true);
     }
 
     // 初始化用户 UUID
@@ -325,78 +323,11 @@ class ChatApp {
         });
     }
 
-    // 检查 API URL 是否已配置
-    checkApiUrl() {
-        const savedUrl = localStorage.getItem('apiUrl');
-        if (savedUrl) {
-            API_CONFIG.baseUrl = savedUrl;
-        }
-        // 无论是否有保存的 URL，都加载历史记录
-        this.loadHistory();
-        
-        // 静默模式查询最后消息（页面加载时自动同步，防止消息丢失）
-        this.showLastMessage(true);
-    }
-
-    // 显示设置弹窗
-    showSettingsModal() {
-        this.settingsModal.classList.add('active');
-        this.settingsOverlay.classList.add('active');
-        const savedUrl = localStorage.getItem('apiUrl');
-        if (savedUrl) {
-            this.apiUrlInput.value = savedUrl;
-        } else {
-            this.apiUrlInput.value = API_CONFIG.baseUrl;
-        }
-        this.apiUrlInput.focus();
-    }
-
-    // 隐藏设置弹窗
-    hideSettingsModal() {
-        this.settingsModal.classList.remove('active');
-        this.settingsOverlay.classList.remove('active');
-    }
-
-    // 保存 API URL
-    saveApiUrl() {
-        const url = this.apiUrlInput.value.trim();
-        if (!url) {
-            this.showToast('请输入 API 地址', 'error');
-            return;
-        }
-        try {
-            new URL(url);
-        } catch {
-            this.showToast('请输入有效的 URL', 'error');
-            return;
-        }
-        localStorage.setItem('apiUrl', url);
-        API_CONFIG.baseUrl = url;
-        this.hideSettingsModal();
-        this.showToast('设置已保存', 'success');
-    }
-
     // 绑定事件
     bindEvents() {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keydown', (e) => this.handleKeyDown(e));
         this.chatInput.addEventListener('input', () => this.autoResizeTextarea());
-        
-        // 设置相关
-        this.settingsSaveBtn.addEventListener('click', () => this.saveApiUrl());
-        this.settingsCancelBtn.addEventListener('click', () => this.hideSettingsModal());
-        this.settingsBtn.addEventListener('click', () => this.showSettingsModal());
-        
-        // 回车保存设置
-        this.apiUrlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.saveApiUrl();
-            }
-        });
-
-        // 点击遮罩关闭
-        this.settingsOverlay.addEventListener('click', () => this.hideSettingsModal());
     }
 
     handleKeyDown(e) {
