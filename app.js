@@ -328,7 +328,7 @@ class ChatApp {
 
     // 初始化用户 UUID
     initUserId() {
-        const storageKey = 'ruby_user_id';
+        const storageKey = 'user_id';
         let userId = localStorage.getItem(storageKey);
         
         if (!userId) {
