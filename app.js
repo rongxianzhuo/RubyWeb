@@ -78,6 +78,16 @@ class ChatApp {
                 return true;
             }
         });
+
+        // /logout - 退出登录
+        this.registerCommand({
+            name: 'logout',
+            description: '退出当前登录',
+            handler: (args, rawInput) => {
+                this.logout();
+                return true;
+            }
+        });
     }
 
     /**
@@ -186,15 +196,15 @@ class ChatApp {
         const apiUrl = API_CONFIG.baseUrl;
         const mockMode = API_CONFIG.mockMode ? '开启' : '关闭';
         const historyCount = this.messageHistory.length;
-        const userId = this.userId ? this.userId.substring(0, 8) + '...' : '未设置';
+        const username = localStorage.getItem('username') || '未设置';
         
         let statusText = `## 🔧 当前状态\n\n`;
         statusText += `| 项目 | 状态 |\n`;
         statusText += `|------|------|\n`;
+        statusText += `| 登录用户 | ${username} |\n`;
         statusText += `| API 地址 | ${apiUrl} |\n`;
         statusText += `| 模拟模式 | ${mockMode} |\n`;
         statusText += `| 历史记录 | ${historyCount} 条 |\n`;
-        statusText += `| 用户 ID | ${userId} |\n`;
         
         this.addBotMessage(statusText);
     }
@@ -233,8 +243,15 @@ class ChatApp {
                 console.log('查询最后消息:', url);
             }
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: this.getAuthHeaders()
+            });
             
+            if (response.status === 401) {
+                this.handleAuthError();
+                return;
+            }
+
             if (!response.ok) {
                 throw new Error(`请求失败 (${response.status})`);
             }
@@ -285,6 +302,11 @@ class ChatApp {
     // ============================================
 
     init() {
+        // 检查登录状态
+        if (!this.checkLoginStatus()) {
+            return;
+        }
+
         this.initUserId(); // 初始化用户 UUID
         this.bindEvents();
         this.loadHistory();
@@ -293,9 +315,20 @@ class ChatApp {
         this.showLastMessage(true);
     }
 
+    // 检查登录状态
+    checkLoginStatus() {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            // 未登录，跳转到登录页
+            window.location.href = 'login.html';
+            return false;
+        }
+        return true;
+    }
+
     // 初始化用户 UUID
     initUserId() {
-        const storageKey = 'ruby_user_id';
+        const storageKey = 'user_id';
         let userId = localStorage.getItem(storageKey);
         
         if (!userId) {
@@ -321,6 +354,40 @@ class ChatApp {
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+
+    // 获取认证头
+    getAuthHeaders() {
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    }
+
+    // 处理认证错误
+    handleAuthError() {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('username');
+        this.showToast('登录已过期，请重新登录', 'error');
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 1500);
+    }
+
+    // 退出登录
+    logout() {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('username');
+        this.showToast('已退出登录', 'success');
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 500);
     }
 
     // 绑定事件
@@ -381,8 +448,13 @@ class ChatApp {
             this.saveHistory();
         } catch (error) {
             this.removeLoadingIndicator();
-            this.showToast(error.message || '请求失败', 'error');
-            // 不移除用户消息，因为已经保存了
+            
+            // 检查是否是认证错误
+            if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                this.handleAuthError();
+            } else {
+                this.showToast(error.message || '请求失败', 'error');
+            }
         }
 
         this.setLoading(false);
@@ -410,9 +482,13 @@ class ChatApp {
 
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify(requestBody)
         });
+
+        if (response.status === 401) {
+            throw new Error('Unauthorized');
+        }
 
         if (!response.ok) throw new Error(`请求失败 (${response.status})`);
 
@@ -446,10 +522,6 @@ class ChatApp {
 def hello():
     print("Hello, World!")
 \`\`\`
-
-## 温馨提示
-
-> 提示：后端开发完成后，修改 \`config.js\` 中的 \`baseUrl\` 即可连接真实接口。
 
 还有什么可以帮你的吗？`;
                 resolve(response);
