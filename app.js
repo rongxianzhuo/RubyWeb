@@ -285,8 +285,8 @@ class ChatApp {
                 this.welcomeContainer = null;
             }
             
-            this.addBotMessage(content);
-            this.messageHistory.push({ role: 'assistant', content: content });
+            this.addBotMessage(content, data.files);
+            this.messageHistory.push({ role: 'assistant', content: content, files: data.files });
             this.saveHistory();
             
         } catch (error) {
@@ -443,8 +443,8 @@ class ChatApp {
         try {
             const response = await this.callAPI(message);
             this.removeLoadingIndicator();
-            this.addBotMessage(response);
-            this.messageHistory.push({ role: 'assistant', content: response });
+            this.addBotMessage(response.content, response.files);
+            this.messageHistory.push({ role: 'assistant', content: response.content, files: response.files });
             this.saveHistory();
         } catch (error) {
             this.removeLoadingIndicator();
@@ -498,15 +498,20 @@ class ChatApp {
             console.log('收到响应:', data);
         }
 
-        return data.content || data.text || data.result || data.response || 
-               (data.choices?.[0]?.message?.content) || String(data);
+        // 返回完整响应对象，包含 content 和 files
+        return {
+            content: data.content || data.text || data.result || data.response || 
+                     (data.choices?.[0]?.message?.content) || String(data),
+            files: data.files || null
+        };
     }
 
     // 模拟响应
     getMockResponse() {
         return new Promise(resolve => {
             setTimeout(() => {
-                const response = `# 欢迎使用智能助手
+                const response = {
+                    content: `# 欢迎使用智能助手
 
 很高兴为你服务！这是一个简单的 **Markdown** 示例：
 
@@ -523,7 +528,9 @@ def hello():
     print("Hello, World!")
 \`\`\`
 
-还有什么可以帮你的吗？`;
+还有什么可以帮你的吗？`,
+                    files: null
+                };
                 resolve(response);
             }, 800 + Math.random() * 700);
         });
@@ -544,17 +551,95 @@ def hello():
     }
 
     // 添加机器人消息（解析 Markdown）
-    addBotMessage(content) {
+    addBotMessage(content, files = null) {
         const div = document.createElement('div');
         div.className = 'message assistant';
+        
+        let filesHtml = '';
+        if (files) {
+            filesHtml = this.renderFiles(files);
+        }
+        
         div.innerHTML = `
             <div class="message-avatar"><i class="fas fa-robot"></i></div>
             <div class="message-content">
                 <div class="message-text">${this.parseMarkdown(content)}</div>
+                ${filesHtml}
             </div>
         `;
         this.chatMessages.appendChild(div);
         this.scrollToBottom();
+    }
+
+    // 渲染文件附件
+    renderFiles(files) {
+        if (!files) return '';
+        
+        // 支持单个文件对象或文件数组
+        const fileList = Array.isArray(files) ? files : [files];
+        
+        let filesHtml = '<div class="message-files">';
+        
+        fileList.forEach(file => {
+            if (!file || !file.name || !file.url) return;
+            
+            const fileName = this.escapeHtml(file.name);
+            const fileUrl = this.escapeHtml(file.url);
+            const fileIcon = this.getFileIcon(file.name);
+            
+            filesHtml += `
+                <a href="${fileUrl}" class="file-item" download="${fileName}" target="_blank" rel="noopener">
+                    <span class="file-icon"><i class="${fileIcon}"></i></span>
+                    <span class="file-info">
+                        <span class="file-name">${fileName}</span>
+                    </span>
+                    <span class="file-download"><i class="fas fa-download"></i></span>
+                </a>
+            `;
+        });
+        
+        filesHtml += '</div>';
+        return filesHtml;
+    }
+
+    // 根据文件扩展名获取图标
+    getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const iconMap = {
+            // 文档
+            'pdf': 'fas fa-file-pdf',
+            'doc': 'fas fa-file-word',
+            'docx': 'fas fa-file-word',
+            'xls': 'fas fa-file-excel',
+            'xlsx': 'fas fa-file-excel',
+            'ppt': 'fas fa-file-powerpoint',
+            'pptx': 'fas fa-file-powerpoint',
+            'txt': 'fas fa-file-lines',
+            'md': 'fas fa-file-code',
+            // 图片
+            'jpg': 'fas fa-file-image',
+            'jpeg': 'fas fa-file-image',
+            'png': 'fas fa-file-image',
+            'gif': 'fas fa-file-image',
+            'svg': 'fas fa-file-image',
+            // 代码
+            'js': 'fas fa-file-code',
+            'ts': 'fas fa-file-code',
+            'py': 'fas fa-file-code',
+            'html': 'fas fa-file-code',
+            'css': 'fas fa-file-code',
+            'json': 'fas fa-file-code',
+            'xml': 'fas fa-file-code',
+            // 压缩包
+            'zip': 'fas fa-file-archive',
+            'rar': 'fas fa-file-archive',
+            '7z': 'fas fa-file-archive',
+            'tar': 'fas fa-file-archive',
+            'gz': 'fas fa-file-archive',
+            // 其他
+            'csv': 'fas fa-file-csv'
+        };
+        return iconMap[ext] || 'fas fa-file';
     }
 
     // HTML 转义
@@ -562,7 +647,9 @@ def hello():
         return text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     // 解析 Markdown
@@ -739,7 +826,7 @@ def hello():
             if (msg.role === 'user') {
                 this.addUserMessage(msg.content);
             } else {
-                this.addBotMessage(msg.content);
+                this.addBotMessage(msg.content, msg.files);
             }
         });
     }
