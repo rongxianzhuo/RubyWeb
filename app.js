@@ -112,17 +112,18 @@ class ChatApp {
         }
 
         switch (code) {
+            case 1006:
             case 4001:
                 // 鉴权失败
                 this.handleAuthError(errorMessage || '认证失败');
                 break;
             case 4002:
                 // 无权限
-                this.showToast(errorMessage || '无权限访问', 'error');
+                this.handleAuthError(errorMessage || '无权限访问', 'error');
                 break;
             case 4003:
                 // Token 过期
-                this.handleTokenExpired(errorMessage || '登录已过期');
+                this.handleAuthError(errorMessage || '登录已过期');
                 break;
             default:
                 // 其他错误，尝试重连
@@ -146,11 +147,6 @@ class ChatApp {
         setTimeout(() => {
             window.location.href = 'login.html';
         }, 2000);
-    }
-
-    handleTokenExpired(message) {
-        // Token 过期处理，与鉴权失败相同
-        this.handleAuthError(message);
     }
 
     reconnectWebSocket() {
