@@ -24,6 +24,7 @@ class ChatApp {
         this.ws = null;
         this.wsConnected = false;
         this.wsReconnecting = false;
+        this.manualDisconnect = false; // 是否是主动断开
 
         // 初始化指令系统
         this.initCommands();
@@ -62,6 +63,7 @@ class ChatApp {
                 }
                 this.wsConnected = true;
                 this.wsReconnecting = false;
+                this.manualDisconnect = false;
                 this.updateConnectionStatus(true);
             };
 
@@ -72,16 +74,13 @@ class ChatApp {
                 this.wsConnected = false;
                 this.updateConnectionStatus(false);
                 
-                // 非正常关闭时尝试重连
-                if (event.code !== 1000 && !this.wsReconnecting) {
-                    this.reconnectWebSocket();
-                }
+                // 处理不同关闭码
+                this.handleWebSocketClose(event.code, event.reason);
             };
 
             this.ws.onerror = (error) => {
                 console.error('WebSocket 错误:', error);
-                this.wsConnected = false;
-                this.updateConnectionStatus(false);
+                // onerror 会在 onclose 之前触发，这里不需要额外处理
             };
 
             this.ws.onmessage = (event) => {
@@ -95,11 +94,72 @@ class ChatApp {
         }
     }
 
+    handleWebSocketClose(code, reason) {
+        // 如果是主动断开（1000 或 manualDisconnect），不处理
+        if (code === 1000 || this.manualDisconnect) {
+            return;
+        }
+
+        // 尝试解析 reason 中的错误信息
+        let errorMessage = null;
+        try {
+            if (reason) {
+                const errorDetail = JSON.parse(reason);
+                errorMessage = errorDetail.message || null;
+            }
+        } catch (e) {
+            // reason 不是 JSON，使用默认消息
+        }
+
+        switch (code) {
+            case 4001:
+                // 鉴权失败
+                this.handleAuthError(errorMessage || '认证失败');
+                break;
+            case 4002:
+                // 无权限
+                this.showToast(errorMessage || '无权限访问', 'error');
+                break;
+            case 4003:
+                // Token 过期
+                this.handleTokenExpired(errorMessage || '登录已过期');
+                break;
+            default:
+                // 其他错误，尝试重连
+                if (!this.wsReconnecting) {
+                    this.showToast('连接断开，正在尝试重连...', 'error');
+                    this.reconnectWebSocket();
+                }
+        }
+    }
+
+    handleAuthError(message) {
+        // 清除本地登录状态
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('username');
+        
+        // 显示错误并跳转登录页
+        this.showToast(message || '登录已过期，请重新登录', 'error');
+        
+        // 延迟跳转，让用户看到错误信息
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 2000);
+    }
+
+    handleTokenExpired(message) {
+        // Token 过期处理，与鉴权失败相同
+        this.handleAuthError(message);
+    }
+
     reconnectWebSocket() {
-        if (this.wsReconnecting) return;
+        if (this.wsReconnecting || this.manualDisconnect) return;
         
         this.wsReconnecting = true;
         const retryInterval = 3000; // 3秒重试一次
+        const maxRetries = 5;
+        let retryCount = 0;
         
         const tryConnect = () => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -107,14 +167,23 @@ class ChatApp {
                 return;
             }
             
+            if (this.manualDisconnect) {
+                this.wsReconnecting = false;
+                return;
+            }
+            
+            retryCount++;
             if (API_CONFIG.debug) {
-                console.log('尝试重新连接 WebSocket...');
+                console.log(`尝试重新连接 WebSocket... (${retryCount}/${maxRetries})`);
             }
             
             this.connectWebSocket();
             
-            if (this.wsReconnecting) {
+            if (retryCount < maxRetries && this.wsReconnecting) {
                 setTimeout(tryConnect, retryInterval);
+            } else if (retryCount >= maxRetries) {
+                this.wsReconnecting = false;
+                this.showToast('连接失败，请刷新页面重试', 'error');
             }
         };
         
@@ -122,6 +191,7 @@ class ChatApp {
     }
 
     disconnectWebSocket() {
+        this.manualDisconnect = true;
         if (this.ws) {
             this.ws.close(1000, '用户主动断开');
             this.ws = null;
@@ -492,7 +562,7 @@ class ChatApp {
     }
 
     // 处理认证错误
-    handleAuthError() {
+    handleAuthErrorLocal() {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_id');
         localStorage.removeItem('username');
