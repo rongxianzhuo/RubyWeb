@@ -16,7 +16,6 @@ class ChatApp {
         this.settingsBtn = document.getElementById('settingsBtn');
 
         // 应用状态
-        this.isLoading = false;
         this.messageHistory = [];
         this.userId = null; // 用户唯一标识
 
@@ -211,16 +210,8 @@ class ChatApp {
                     }
                     break;
 
-                case 'thinking':
-                    // Ruby 正在思考
-                    this.setLoading(true);
-                    this.addLoadingIndicator();
-                    break;
-
                 case 'done':
                     // 消息完成
-                    this.removeLoadingIndicator();
-                    this.setLoading(false);
                     this.addBotMessage(msg.content, msg.files);
                     this.messageHistory.push({ role: 'assistant', content: msg.content, files: msg.files });
                     this.saveHistory();
@@ -233,8 +224,6 @@ class ChatApp {
 
                 case 'error':
                     // 错误消息
-                    this.removeLoadingIndicator();
-                    this.setLoading(false);
                     this.showToast(msg.message || '发生错误', 'error');
                     break;
 
@@ -904,37 +893,6 @@ def hello():
             
             return `<table class="markdown-table">${headerHtml}<tbody>${bodyHtml}</tbody></table>`;
         });
-    }
-
-    // 添加加载指示器
-    addLoadingIndicator() {
-        const div = document.createElement('div');
-        div.className = 'message assistant';
-        div.id = 'loadingIndicator';
-        div.innerHTML = `
-            <div class="message-avatar"><i class="fas fa-robot"></i></div>
-            <div class="message-content">
-                <div class="message-text typing-indicator">
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                </div>
-            </div>
-        `;
-        this.chatMessages.appendChild(div);
-        this.scrollToBottom();
-    }
-
-    removeLoadingIndicator() {
-        const el = document.getElementById('loadingIndicator');
-        if (el) el.remove();
-    }
-
-    setLoading(loading) {
-        this.isLoading = loading;
-        this.sendBtn.disabled = loading;
-        this.chatInput.disabled = loading;
-        this.sendBtn.classList.toggle('loading', loading);
     }
 
     scrollToBottom() {
