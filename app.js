@@ -1,6 +1,7 @@
 /**
  * AI 聊天应用主逻辑
  * 支持 Markdown 渲染和可扩展指令系统
+ * 基于 WebSocket 长连接
  */
 
 class ChatApp {
@@ -19,11 +20,189 @@ class ChatApp {
         this.messageHistory = [];
         this.userId = null; // 用户唯一标识
 
+        // WebSocket 连接
+        this.ws = null;
+        this.wsConnected = false;
+        this.wsReconnecting = false;
+
         // 初始化指令系统
         this.initCommands();
 
         // 初始化
         this.init();
+    }
+
+    // ============================================
+    // WebSocket 连接管理
+    // ============================================
+
+    getWebSocketUrl() {
+        const baseUrl = API_CONFIG.baseUrl.replace(/^http/, 'ws').replace(/\/chat\/.*$/, '');
+        const token = localStorage.getItem('auth_token');
+        return `${baseUrl}/ws/chat/${this.userId}?token=${token}`;
+    }
+
+    connectWebSocket() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            return;
+        }
+
+        const wsUrl = this.getWebSocketUrl();
+        
+        if (API_CONFIG.debug) {
+            console.log('正在连接 WebSocket:', wsUrl);
+        }
+
+        try {
+            this.ws = new WebSocket(wsUrl);
+
+            this.ws.onopen = () => {
+                if (API_CONFIG.debug) {
+                    console.log('WebSocket 连接已建立');
+                }
+                this.wsConnected = true;
+                this.wsReconnecting = false;
+                this.updateConnectionStatus(true);
+            };
+
+            this.ws.onclose = (event) => {
+                if (API_CONFIG.debug) {
+                    console.log('WebSocket 连接已关闭:', event.code, event.reason);
+                }
+                this.wsConnected = false;
+                this.updateConnectionStatus(false);
+                
+                // 非正常关闭时尝试重连
+                if (event.code !== 1000 && !this.wsReconnecting) {
+                    this.reconnectWebSocket();
+                }
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+                this.wsConnected = false;
+                this.updateConnectionStatus(false);
+            };
+
+            this.ws.onmessage = (event) => {
+                this.handleWebSocketMessage(event.data);
+            };
+
+        } catch (error) {
+            console.error('创建 WebSocket 失败:', error);
+            this.wsConnected = false;
+            this.updateConnectionStatus(false);
+        }
+    }
+
+    reconnectWebSocket() {
+        if (this.wsReconnecting) return;
+        
+        this.wsReconnecting = true;
+        const retryInterval = 3000; // 3秒重试一次
+        
+        const tryConnect = () => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.wsReconnecting = false;
+                return;
+            }
+            
+            if (API_CONFIG.debug) {
+                console.log('尝试重新连接 WebSocket...');
+            }
+            
+            this.connectWebSocket();
+            
+            if (this.wsReconnecting) {
+                setTimeout(tryConnect, retryInterval);
+            }
+        };
+        
+        setTimeout(tryConnect, retryInterval);
+    }
+
+    disconnectWebSocket() {
+        if (this.ws) {
+            this.ws.close(1000, '用户主动断开');
+            this.ws = null;
+            this.wsConnected = false;
+        }
+    }
+
+    handleWebSocketMessage(data) {
+        try {
+            const msg = JSON.parse(data);
+            
+            if (API_CONFIG.debug) {
+                console.log('收到消息:', msg);
+            }
+
+            switch (msg.type) {
+                case 'connected':
+                    // 连接成功
+                    if (API_CONFIG.debug) {
+                        this.showToast('已连接到服务器', 'success');
+                    }
+                    break;
+
+                case 'thinking':
+                    // Ruby 正在思考
+                    this.setLoading(true);
+                    this.addLoadingIndicator();
+                    break;
+
+                case 'done':
+                    // 消息完成
+                    this.removeLoadingIndicator();
+                    this.setLoading(false);
+                    this.addBotMessage(msg.content, msg.files);
+                    this.messageHistory.push({ role: 'assistant', content: msg.content, files: msg.files });
+                    this.saveHistory();
+                    break;
+
+                case 'chunk':
+                    // 流式输出片段（预留）
+                    // 目前后端尚未实现，先按 done 处理
+                    break;
+
+                case 'error':
+                    // 错误消息
+                    this.removeLoadingIndicator();
+                    this.setLoading(false);
+                    this.showToast(msg.message || '发生错误', 'error');
+                    break;
+
+                default:
+                    console.warn('未知消息类型:', msg.type);
+            }
+        } catch (error) {
+            console.error('解析消息失败:', error);
+        }
+    }
+
+    sendWebSocketMessage(type, data = {}) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            this.showToast('连接未建立，请等待...', 'error');
+            return false;
+        }
+
+        const message = { type, ...data };
+        
+        if (API_CONFIG.debug) {
+            console.log('发送消息:', message);
+        }
+
+        this.ws.send(JSON.stringify(message));
+        return true;
+    }
+
+    updateConnectionStatus(connected) {
+        // 可选：更新 UI 显示连接状态
+        const statusIndicator = document.getElementById('connectionStatus');
+        if (statusIndicator) {
+            statusIndicator.className = connected ? 'connected' : 'disconnected';
+            statusIndicator.title = connected ? '已连接' : '未连接';
+        }
     }
 
     // ============================================
@@ -69,12 +248,12 @@ class ChatApp {
             }
         });
 
-        // /last - 查询Ruby最后回复消息
+        // /reset - 重置对话
         this.registerCommand({
-            name: 'last',
-            description: '查询Ruby最后一条回复消息及思考状态',
+            name: 'reset',
+            description: '重置对话上下文',
             handler: (args, rawInput) => {
-                this.showLastMessage(false);
+                this.resetConversation();
                 return true;
             }
         });
@@ -197,104 +376,48 @@ class ChatApp {
         const mockMode = API_CONFIG.mockMode ? '开启' : '关闭';
         const historyCount = this.messageHistory.length;
         const username = localStorage.getItem('username') || '未设置';
+        const wsStatus = this.wsConnected ? '已连接' : '未连接';
         
         let statusText = `## 🔧 当前状态\n\n`;
         statusText += `| 项目 | 状态 |\n`;
         statusText += `|------|------|\n`;
         statusText += `| 登录用户 | ${username} |\n`;
         statusText += `| API 地址 | ${apiUrl} |\n`;
-        statusText += `| 模拟模式 | ${mockMode} |\n`;
+        statusText += `| WebSocket | ${wsStatus} |\n`;
         statusText += `| 历史记录 | ${historyCount} 条 |\n`;
         
         this.addBotMessage(statusText);
     }
 
     /**
-     * 获取 messageHistory 中最后一条 assistant 消息
+     * 重置对话
      */
-    getLastAssistantMessageFromHistory() {
-        for (let i = this.messageHistory.length - 1; i >= 0; i--) {
-            if (this.messageHistory[i].role === 'assistant') {
-                return this.messageHistory[i].content;
-            }
-        }
-        return '';
-    }
-
-    /**
-     * 显示Ruby最后回复消息
-     * @param {boolean} silent - 静默模式，true时不显示toast
-     */
-    async showLastMessage(silent) {
-        if (API_CONFIG.mockMode) {
-            if (!silent) {
-                this.showToast('模拟模式下无法查询');
-            }
+    resetConversation() {
+        if (!this.wsConnected) {
+            this.showToast('未连接到服务器', 'error');
             return;
         }
 
-        try {
-            // 从 baseUrl 提取基础路径，拼接 /last_message/<userId>
-            // baseUrl 格式: http://xxx:port/chat/<userId>
-            const baseUrl = API_CONFIG.baseUrl.replace(/\/chat\/.*$/, '');
-            const url = `${baseUrl}/last_message/${this.userId}`;
-            
-            if (API_CONFIG.debug) {
-                console.log('查询最后消息:', url);
-            }
-
-            const response = await fetch(url, {
-                headers: this.getAuthHeaders()
-            });
-            
-            if (response.status === 401) {
-                this.handleAuthError();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`请求失败 (${response.status})`);
-            }
-
-            const data = await response.json();
-            
-            if (API_CONFIG.debug) {
-                console.log('收到响应:', data);
-            }
-
-            const content = data.content || '';
-            
-            // 获取 messageHistory 中最后一条 assistant 消息
-            const lastHistoryMsg = this.getLastAssistantMessageFromHistory();
-            
-            // 如果消息相同或为空
-            if (content === lastHistoryMsg || !content) {
-                if (!silent) {
-                    if (data.think === 1) {
-                        this.showToast('Ruby 正在思考中...');
-                    } else {
-                        this.showToast('暂无新消息');
-                    }
-                }
-                return;
-            }
-            
-            // 消息不同且不为空，更新聊天列表
-            if (this.welcomeContainer) {
-                this.welcomeContainer.remove();
-                this.welcomeContainer = null;
-            }
-            
-            this.addBotMessage(content, data.files);
-            this.messageHistory.push({ role: 'assistant', content: content, files: data.files });
-            this.saveHistory();
-            
-        } catch (error) {
-            console.error('查询最后消息失败:', error);
-            if (!silent) {
-                this.showToast('查询失败', 'error');
-            }
-        }
+        this.sendWebSocketMessage('reset');
+        this.messageHistory = [];
+        localStorage.removeItem('chatHistory');
+        
+        // 清空页面上的消息
+        this.chatMessages.innerHTML = '';
+        
+        // 重新显示欢迎页
+        this.welcomeContainer = document.createElement('div');
+        this.welcomeContainer.className = 'welcome-container';
+        this.welcomeContainer.innerHTML = `
+            <div class="welcome-icon">
+                <i class="fas fa-comments"></i>
+            </div>
+            <h2>对话已重置</h2>
+            <p>开始新的对话吧！</p>
+        `;
+        this.chatMessages.appendChild(this.welcomeContainer);
+        
+        this.showToast('对话已重置', 'success');
     }
 
     // ============================================
@@ -311,8 +434,8 @@ class ChatApp {
         this.bindEvents();
         this.loadHistory();
         
-        // 静默模式查询最后消息（页面加载时自动同步，防止消息丢失）
-        this.showLastMessage(true);
+        // 建立 WebSocket 连接
+        this.connectWebSocket();
     }
 
     // 检查登录状态
@@ -356,7 +479,7 @@ class ChatApp {
         });
     }
 
-    // 获取认证头
+    // 获取认证头（保留用于可能的 HTTP 请求）
     getAuthHeaders() {
         const token = localStorage.getItem('auth_token');
         const headers = {
@@ -374,6 +497,7 @@ class ChatApp {
         localStorage.removeItem('user_id');
         localStorage.removeItem('username');
         this.showToast('登录已过期，请重新登录', 'error');
+        this.disconnectWebSocket();
         setTimeout(() => {
             window.location.href = 'login.html';
         }, 1500);
@@ -381,6 +505,7 @@ class ChatApp {
 
     // 退出登录
     logout() {
+        this.disconnectWebSocket();
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_id');
         localStorage.removeItem('username');
@@ -395,6 +520,11 @@ class ChatApp {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keydown', (e) => this.handleKeyDown(e));
         this.chatInput.addEventListener('input', () => this.autoResizeTextarea());
+        
+        // 页面卸载时断开 WebSocket
+        window.addEventListener('beforeunload', () => {
+            this.disconnectWebSocket();
+        });
     }
 
     handleKeyDown(e) {
@@ -411,7 +541,7 @@ class ChatApp {
     }
 
     // 发送消息
-    async sendMessage() {
+    sendMessage() {
         const message = this.chatInput.value.trim();
         if (!message || this.isLoading) return;
 
@@ -423,6 +553,12 @@ class ChatApp {
             return;
         }
         // ========== 指令系统处理结束 ==========
+
+        // 检查 WebSocket 连接
+        if (!this.wsConnected) {
+            this.showToast('连接未建立，请等待...', 'error');
+            return;
+        }
 
         if (this.welcomeContainer) {
             this.welcomeContainer.remove();
@@ -437,76 +573,11 @@ class ChatApp {
         this.chatInput.value = '';
         this.autoResizeTextarea();
 
-        this.setLoading(true);
-        this.addLoadingIndicator();
-
-        try {
-            const response = await this.callAPI(message);
-            this.removeLoadingIndicator();
-            this.addBotMessage(response.content, response.files);
-            this.messageHistory.push({ role: 'assistant', content: response.content, files: response.files });
-            this.saveHistory();
-        } catch (error) {
-            this.removeLoadingIndicator();
-            
-            // 检查是否是认证错误
-            if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-                this.handleAuthError();
-            } else {
-                this.showToast(error.message || '请求失败', 'error');
-            }
-        }
-
-        this.setLoading(false);
+        // 通过 WebSocket 发送消息
+        this.sendWebSocketMessage('message', { content: message });
     }
 
-    // 调用 API
-    async callAPI(message) {
-        if (API_CONFIG.mockMode) {
-            return this.getMockResponse();
-        }
-
-        const requestBody = {
-            name: this.userId,  // 使用用户 UUID
-            content: message
-        };
-
-        // 从 baseUrl 提取基础路径，拼接 /chat/<userId>
-        // baseUrl 格式: http://xxx:port/chat/<userId>
-        const baseUrl = API_CONFIG.baseUrl.replace(/\/chat\/.*$/, '');
-        const url = `${baseUrl}/chat/${this.userId}`;
-
-        if (API_CONFIG.debug) {
-            console.log('发送请求:', url, requestBody);
-        }
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: this.getAuthHeaders(),
-            body: JSON.stringify(requestBody)
-        });
-
-        if (response.status === 401) {
-            throw new Error('Unauthorized');
-        }
-
-        if (!response.ok) throw new Error(`请求失败 (${response.status})`);
-
-        const data = await response.json();
-        
-        if (API_CONFIG.debug) {
-            console.log('收到响应:', data);
-        }
-
-        // 返回完整响应对象，包含 content 和 files
-        return {
-            content: data.content || data.text || data.result || data.response || 
-                     (data.choices?.[0]?.message?.content) || String(data),
-            files: data.files || null
-        };
-    }
-
-    // 模拟响应
+    // 模拟响应（保留用于 mock 模式）
     getMockResponse() {
         return new Promise(resolve => {
             setTimeout(() => {
