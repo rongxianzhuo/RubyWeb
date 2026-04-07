@@ -111,6 +111,7 @@ class ChatApp {
         }
 
         switch (code) {
+            case 1006:
             case 4001:
                 // 鉴权失败
                 this.handleAuthError(errorMessage || '认证失败');
@@ -124,7 +125,7 @@ class ChatApp {
                 this.handleAuthError(errorMessage || '登录已过期');
                 break;
             default:
-                // 1006（网络异常断开）或其他错误，尝试自动重连
+                // 其他错误，尝试重连
                 if (!this.wsReconnecting) {
                     this.showToast('连接断开，正在尝试重连...', 'error');
                     this.reconnectWebSocket();
