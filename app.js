@@ -25,6 +25,12 @@ class ChatApp {
         this.wsReconnecting = false;
         this.manualDisconnect = false; // 是否是主动断开
 
+        // 重连状态 (移到这里避免每次调用时重置)
+        this.retryCount = 0;
+        this.maxRetries = 5;
+        this.retryInterval = 3000;
+        this.retryTimer = null;
+
         // 初始化指令系统
         this.initCommands();
 
@@ -43,8 +49,15 @@ class ChatApp {
     }
 
     connectWebSocket() {
+        // 如果已有活跃连接，不再创建新连接
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             return;
+        }
+
+        // 关闭已有的（如果有的话）
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
         }
 
         const wsUrl = this.getWebSocketUrl();
@@ -54,9 +67,10 @@ class ChatApp {
         }
 
         try {
-            this.ws = new WebSocket(wsUrl);
+            const ws = new WebSocket(wsUrl);
+            this.ws = ws;  // 先赋值，确保引用正确
 
-            this.ws.onopen = () => {
+            ws.onopen = () => {
                 if (API_CONFIG.debug) {
                     console.log('WebSocket 连接已建立');
                 }
@@ -66,7 +80,7 @@ class ChatApp {
                 this.updateConnectionStatus(true);
             };
 
-            this.ws.onclose = (event) => {
+            ws.onclose = (event) => {
                 if (API_CONFIG.debug) {
                     console.log('WebSocket 连接已关闭:', event.code, event.reason);
                 }
@@ -77,12 +91,12 @@ class ChatApp {
                 this.handleWebSocketClose(event.code, event.reason);
             };
 
-            this.ws.onerror = (error) => {
+            ws.onerror = (error) => {
                 console.error('WebSocket 错误:', error);
                 // onerror 会在 onclose 之前触发，这里不需要额外处理
             };
 
-            this.ws.onmessage = (event) => {
+            ws.onmessage = (event) => {
                 this.handleWebSocketMessage(event.data);
             };
 
@@ -96,6 +110,8 @@ class ChatApp {
     handleWebSocketClose(code, reason) {
         // 如果是主动断开（1000 或 manualDisconnect），不处理
         if (code === 1000 || this.manualDisconnect) {
+            // 如果是主动断开，也要重置重连状态
+            this.resetReconnectState();
             return;
         }
 
@@ -149,44 +165,68 @@ class ChatApp {
     }
 
     reconnectWebSocket() {
-        if (this.wsReconnecting || this.manualDisconnect) return;
+        // 防止重复启动重连
+        if (this.wsReconnecting || this.manualDisconnect) {
+            return;
+        }
         
+        // 如果已有活跃连接，不需要重连
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            return;
+        }
+
         this.wsReconnecting = true;
-        const retryInterval = 3000; // 3秒重试一次
-        const maxRetries = 5;
-        let retryCount = 0;
+        this.retryCount = 0;  // 重置重试计数
+        this.tryReconnect();
+    }
+
+    tryReconnect() {
+        // 检查是否应该继续重连
+        if (this.manualDisconnect) {
+            this.resetReconnectState();
+            return;
+        }
         
-        const tryConnect = () => {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.wsReconnecting = false;
-                return;
-            }
-            
-            if (this.manualDisconnect) {
-                this.wsReconnecting = false;
-                return;
-            }
-            
-            retryCount++;
-            if (API_CONFIG.debug) {
-                console.log(`尝试重新连接 WebSocket... (${retryCount}/${maxRetries})`);
-            }
-            
-            this.connectWebSocket();
-            
-            if (retryCount < maxRetries && this.wsReconnecting) {
-                setTimeout(tryConnect, retryInterval);
-            } else if (retryCount >= maxRetries) {
-                this.wsReconnecting = false;
-                this.showToast('连接失败，请刷新页面重试', 'error');
-            }
-        };
+        // 如果连接已经成功，不需要继续重连
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.resetReconnectState();
+            return;
+        }
+
+        this.retryCount++;
         
-        setTimeout(tryConnect, retryInterval);
+        if (API_CONFIG.debug) {
+            console.log(`尝试重新连接 WebSocket... (${this.retryCount}/${this.maxRetries})`);
+        }
+        
+        // 尝试连接
+        this.connectWebSocket();
+        
+        if (this.retryCount < this.maxRetries) {
+            // 继续重连
+            this.retryTimer = setTimeout(() => {
+                this.tryReconnect();
+            }, this.retryInterval);
+        } else {
+            // 重连次数用尽
+            this.wsReconnecting = false;
+            this.showToast('连接失败，请刷新页面重试', 'error');
+        }
+    }
+
+    resetReconnectState() {
+        this.wsReconnecting = false;
+        this.retryCount = 0;
+        if (this.retryTimer) {
+            clearTimeout(this.retryTimer);
+            this.retryTimer = null;
+        }
     }
 
     disconnectWebSocket() {
         this.manualDisconnect = true;
+        this.resetReconnectState();
+        
         if (this.ws) {
             this.ws.close(1000, '用户主动断开');
             this.ws = null;
